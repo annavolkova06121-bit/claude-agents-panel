@@ -1,0 +1,9 @@
+{
+  "name": "shortsfactory-montage-kit",
+  "version": "0.1.0",
+  "description": "Протокол монтажа Shorts: последовательно, с контролем лимита и сжатием контекста",
+  "license": "MIT",
+  "author": {
+    "name": "ShortsFactory"
+  }
+}
