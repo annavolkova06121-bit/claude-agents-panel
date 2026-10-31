@@ -1,0 +1,10 @@
+{
+  "name": "agents-pane",
+  "version": "0.1.1",
+  "description": "Панель агентов: роль, модель, задача, что делает сейчас, последний ответ; открыть агента и написать ему",
+  "types": "./types/index.d.ts",
+  "license": "MIT",
+  "author": {
+    "name": "ShortsFactory"
+  }
+}

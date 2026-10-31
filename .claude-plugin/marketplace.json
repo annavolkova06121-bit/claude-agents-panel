@@ -1,0 +1,12 @@
+{
+  "name": "shortsfactory-tools",
+  "owner": {
+    "name": "ShortsFactory"
+  },
+  "plugins": [
+    {
+      "name": "agents-pane",
+      "source": "./"
+    }
+  ]
+}
