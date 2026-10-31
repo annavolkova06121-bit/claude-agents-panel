@@ -1,0 +1,40 @@
+# Шаблон ~/.kimi-code/config.toml под протокол монтажа.
+# Составлен по документации Kimi Code (страницы «Конфигурационный файл» и «Конфигурация моделей»).
+# ПРОВЕРЬТЕ: алиас модели kimi-code/k3.1-pro выведен по аналогии с примером kimi-code/k3 из документации.
+# Если после /login модель не находится, выберите её командой /model и посмотрите реальный алиас.
+
+default_model = "kimi-code/k3.1-pro"
+default_permission_mode = "manual"   # безопаснее, пока протокол не отлажен
+default_plan_mode = false
+merge_all_available_skills = true
+
+[providers."managed:kimi-code"]
+type = "kimi"
+base_url = "https://api.kimi.ai/coding/v1"   # для Китая: https://api.kimi.com/coding/v1
+api_key = ""                                  # заполняется автоматически после /login
+
+[models."kimi-code/k3.1-pro"]
+provider = "managed:kimi-code"
+model = "k3.1-pro"
+max_context_size = 1048576
+capabilities = ["thinking", "always_thinking", "image_in", "video_in", "tool_use"]
+display_name = "K3.1 Pro"
+support_efforts = ["low", "high", "max"]
+default_effort = "high"
+
+[thinking]
+enabled = true     # у K3.1 Pro выключить мышление нельзя, запрос будет отклонён
+effort = "high"    # не менять внутри сессии: сбрасывается кэш контекста
+keep = "all"
+
+[loop_control]
+max_attempts_per_step = 5        # было 10 в примере; держит бюджет tool uses
+reserved_context_size = 50000    # запас под сжатие/сводку, не использовать под работу
+
+[task]
+max_running_tasks = 2            # потолок параллельных задач по протоколу
+keep_alive_on_exit = false
+
+[[permission.rules]]
+decision = "deny"
+pattern = "Bash(rm -rf*)"
