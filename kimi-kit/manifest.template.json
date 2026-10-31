@@ -1,0 +1,8 @@
+[
+  {"id": "vbHY7fV2zCA", "status": "done", "stage": "none", "out": "", "attempts": 1, "notes": ""},
+  {"id": "bIwVWbfz1mM", "status": "done", "stage": "none", "out": "", "attempts": 1, "notes": ""},
+  {"id": "0s7YYnnHfB8", "status": "done", "stage": "none", "out": "", "attempts": 1, "notes": "проверить круг на газете 78,2"},
+  {"id": "38FTwYBu3zs", "status": "done", "stage": "none", "out": "", "attempts": 1, "notes": "проверить круг 22,1, рамку 35,3; HUD LAP 01 OF 52 ~89 с"},
+  {"id": "hOtlTdNv_Jc", "status": "done", "stage": "none", "out": "", "attempts": 1, "notes": "проверить стрелку 69,1; вывеска DENTIST 65-72 с"},
+  {"id": "TODO_10_more", "status": "todo", "stage": "lint", "out": "", "attempts": 0, "notes": "добавить остальные id из пачек 2 и 3"}
+]
