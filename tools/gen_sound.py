@@ -154,11 +154,21 @@ def save(name, x):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
 
 
+def add_splash_extras(buf, t0, wrap=True):
+    """Мелкие капли и шлепки о стекло: «смачно разлетается»."""
+    for ti in np.sort(t0 + 0.02 + rng.random(22) ** 1.3 * 0.45):
+        f0 = rng.uniform(800, 1600)
+        add_fast(buf, bloop(int(0.12 * SR), f0, f0 * 0.4, 0.05), ti, rng.uniform(0.18, 0.4), wrap=wrap)
+    for dt, g in [(0.05, 0.5), (0.11, 0.45), (0.18, 0.4), (0.26, 0.35), (0.34, 0.3)]:
+        add_fast(buf, slap(int(0.06 * SR)) * 2.2, t0 + dt, g, wrap=wrap)
+
+
 def build_loop():
     LOOP = 4.0
     buf = np.zeros(int(LOOP * SR), np.float32)
-    add_fast(buf, whoosh(0.42), 3.16, 0.55)
-    add_fast(buf, splat_event(), 3.56, 1.0)
+    add_fast(buf, whoosh(0.52), 2.96, 0.6)
+    add_fast(buf, splat_event(), 3.50, 1.0)
+    add_splash_extras(buf, 3.50)
     add_fast(buf, slide_event(1.1), 0.08, 0.6)
     for ti, f in [(0.32, 950), (0.51, 880), (0.64, 1050), (0.83, 820), (0.97, 990)]:
         add_fast(buf, bloop(int(0.22 * SR), f, f * 0.34, 0.07), ti, 0.55)
@@ -170,9 +180,10 @@ def build_loop():
 if __name__ == "__main__":
     loop = build_loop()
     save("loop.wav", loop)
-    sp = np.zeros(int(1.55 * SR), np.float32)
-    add_fast(sp, whoosh(0.42), 0.0, 0.55, wrap=False)
-    add_fast(sp, splat_event(), 0.40, 1.0, wrap=False)
+    sp = np.zeros(int(1.95 * SR), np.float32)
+    add_fast(sp, whoosh(0.52), 0.0, 0.6, wrap=False)
+    add_fast(sp, splat_event(), 0.54, 1.0, wrap=False)
+    add_splash_extras(sp, 0.54, wrap=False)
     save("sfx_splat.wav", normalize(sp))
     save("sfx_slide.wav", normalize(slide_event(1.1)))
     dr = np.zeros(int(0.3 * SR), np.float32); add_fast(dr, bloop(int(0.25 * SR), 950, 320, 0.08), 0.01, 1, wrap=False); save("sfx_drip.wav", normalize(dr))
