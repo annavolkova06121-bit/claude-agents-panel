@@ -163,7 +163,7 @@ def sticky(r, dur, amp=.3):
 FLY0, FLY_D = 2.95, 0.30      # подлёт
 IMP = 3.25                    # удар
 SL0, SL_D = 0.04, 0.70        # сползание плёнки
-DRIPS = [.08, .14, .2, .27, .34, .42, .5, .6]
+DRIPS = [.22, .28, .3, .34, .37, .4, .43, .46, .52]   # моменты, когда с подтёков срываются крупные капли
 POPS = [.05, .1, .16, .24, .32, .4, .5, .6]
 SLAPS = [IMP + .03, IMP + .07, IMP + .12, IMP + .18, IMP + .24]
 
@@ -350,8 +350,8 @@ if __name__ == "__main__":
         x = fn()
         save(f"{key}.wav", x)
         print(key, title, "peak", round(float(np.max(np.abs(x))), 2), "rms", round(float(np.sqrt(np.mean(x ** 2))), 3))
-    # основной звук страницы цикла = вариант 1; короткие превью-фрагменты из него
-    base = v1_wet()
+    # основной звук страницы цикла = вариант 5 «Кислота и шипение»; короткие превью-фрагменты из него
+    base = v5_acid()
     save("loop.wav", base)
     save("sfx_splat.wav", clip(base, FLY0 - .02, .95))
     save("sfx_slide.wav", clip(base, 0.0, .8))
