@@ -5,7 +5,7 @@
 затухания (как у настоящих пузырей), а не падает: падающие «блупы» звучат как бластеры.
 Основа звука: шум, мокрые «чпоки» (кластеры мелких пузырьков), удары, воздух, шипение.
 Петля 4,0 с свёрнута по кругу: хвост удара в конце продолжается в начале ролика.
-Тайминги те же, что в анимации: сползание 0,08-1,2 с, подлёт 2,96-3,48 с, удар 3,50 с.
+Тайминги те же, что в анимации (ускорена под ваши примеры): сползание 0,04-0,75 с, подлёт 2,95-3,25 с, удар 3,25 с, цикл 3,6 с.
 """
 import math
 import wave
@@ -13,7 +13,7 @@ import wave
 import numpy as np
 
 SR = 44100
-LOOP = 4.0
+LOOP = 3.6
 N = int(LOOP * SR)
 
 
@@ -159,10 +159,16 @@ def sticky(r, dur, amp=.3):
     return (x * amp * 3).astype(np.float32)
 
 
-# ---------- общий «план» по времени ----------
-DRIPS = [.24, .33, .41, .5, .6, .7, .83, .95]
-POPS = [.13, .21, .3, .43, .55, .66, .8, .92, 1.04]
-SLAPS = [3.55, 3.61, 3.68, 3.76, 3.84]
+# ---------- общий «план» по времени (цикл 3,6 с) ----------
+FLY0, FLY_D = 2.95, 0.30      # подлёт
+IMP = 3.25                    # удар
+SL0, SL_D = 0.04, 0.70        # сползание плёнки
+DRIPS = [.08, .14, .2, .27, .34, .42, .5, .6]
+POPS = [.05, .1, .16, .24, .32, .4, .5, .6]
+SLAPS = [IMP + .03, IMP + .07, IMP + .12, IMP + .18, IMP + .24]
+
+
+def hump(n): return np.sin(np.linspace(0, np.pi, n)).astype(np.float32)
 
 
 def finish(buf, rms_target=.11, peak=.92):
@@ -180,18 +186,18 @@ def v1_wet(seed=11):
     """Влажный шлёп: живой, плотный, как ладонь в густом геле."""
     r = np.random.default_rng(seed)
     b = np.zeros(N, np.float32)
-    add(b, air(r, .54, 220, 1500, 2.0, .35), 2.96)
-    cluster(b, r, 3.05, .43, 8, 150, 400, 2600, .22, .2, 1.6)
-    add(b, thump(108, 48, .07, .16, .4, 1.0), 3.50)
-    add(b, slap(r, 500, 2800, .035, .85), 3.50)
-    cluster(b, r, 3.50, .6, 420, 40, 250, 2300, .5, .22, .7)
-    add(b, gloop(r, .6, 260, 5.5, .5, .35), 3.52)
+    add(b, air(r, FLY_D, 220, 1500, 2.0, .35), FLY0)
+    cluster(b, r, FLY0 + .04, FLY_D - .05, 8, 160, 400, 2600, .22, .2, 1.6)
+    add(b, thump(108, 48, .07, .16, .4, 1.0), IMP)
+    add(b, slap(r, 500, 2800, .035, .85), IMP)
+    cluster(b, r, IMP, .5, 420, 40, 250, 2300, .5, .22, .7)
+    add(b, gloop(r, .5, 260, 5.5, .5, .3), IMP + .02)
     for ti in SLAPS:
         add(b, slap(r, 650, 3000, .028, .5), ti)
         add(b, thump(150, 80, .04, .06, .15, .35), ti)
-    add(b, air(r, .5, 80, 420, .6, .45)[::1], 3.52)
-    add(b, gloop(r, 1.05, 320, 4.5, .55, 1.2) * np.sin(np.linspace(0, np.pi, int(1.05 * SR))), .08)
-    cluster(b, r, .08, 1.1, 90, 25, 280, 1600, .3, .2)
+    add(b, air(r, .4, 80, 420, .6, .45), IMP + .02)
+    add(b, gloop(r, SL_D, 320, 6.5, .55, 1.0) * hump(int(SL_D * SR)), SL0)
+    cluster(b, r, SL0, SL_D, 130, 30, 280, 1600, .3, .2)
     for ti in DRIPS:
         add(b, bubble(r.uniform(330, 560), .45, .5), ti)
         add(b, slap(r, 500, 1800, .02, .18), ti)
@@ -204,21 +210,21 @@ def v2_jelly(seed=12):
     """Желе: мягкое, округлое, с дрожанием массы."""
     r = np.random.default_rng(seed)
     b = np.zeros(N, np.float32)
-    add(b, lp(air(r, .54, 120, 700, 1.8, .4), 900), 2.96)
-    add(b, thump(135, 58, .09, .22, .6, 1.0), 3.50)
-    n = int(.9 * SR); t = np.arange(n) / SR
-    wob = np.sin(2 * np.pi * 7.5 * t) * np.exp(-t / .38)
-    add(b, lp(noise(r, n), 190) * (.3 + wob) * np.exp(-t / .5) * 5, 3.50)
-    add(b, slap(r, 300, 1400, .05, .5), 3.50)
-    cluster(b, r, 3.50, .6, 120, 20, 120, 700, .55, .3, .8)
+    add(b, lp(air(r, FLY_D, 120, 700, 1.8, .4), 900), FLY0)
+    add(b, thump(135, 58, .09, .22, .6, 1.0), IMP)
+    n = int(.8 * SR); t = np.arange(n) / SR
+    wob = np.sin(2 * np.pi * 8.5 * t) * np.exp(-t / .3)
+    add(b, lp(noise(r, n), 190) * (.3 + wob) * np.exp(-t / .4) * 5, IMP)
+    add(b, slap(r, 300, 1400, .05, .5), IMP)
+    cluster(b, r, IMP, .5, 120, 20, 120, 700, .55, .3, .8)
     for ti in SLAPS:
         add(b, lp(slap(r, 300, 1500, .04, .5), 1600), ti)
         add(b, thump(120, 70, .05, .09, .2, .3), ti)
-    add(b, gloop(r, 1.1, 210, 3.5, .5, 1.0) * np.sin(np.linspace(0, np.pi, int(1.1 * SR))), .08)
+    add(b, gloop(r, SL_D, 210, 4.5, .5, 1.0) * hump(int(SL_D * SR)), SL0)
     for ti in DRIPS:
-        add(b, bubble(r.uniform(150, 290), .4, .55, tau=.06), ti)
+        add(b, bubble(r.uniform(150, 290), .4, .55, tau=.05), ti)
     for ti in POPS:
-        add(b, bubble(r.uniform(500, 900), .3, .22, tau=.025), ti)
+        add(b, bubble(r.uniform(500, 900), .3, .22, tau=.02), ti)
     return finish(reverb(b, .3, .14))
 
 
@@ -226,24 +232,24 @@ def v3_cartoon(seed=13):
     """Мультяшный: весёлый «сплат» и «чпок», упругое дрожание после удара."""
     r = np.random.default_rng(seed)
     b = np.zeros(N, np.float32)
-    n = int(.5 * SR); u = np.linspace(0, 1, n)
-    wh = bp(noise(r, n), 500, 2400) * np.sin(np.pi * u ** .8) ** 2
-    add(b, wh * 1.6, 2.98)
-    add(b, thump(120, 55, .05, .1, .3, .95), 3.50)
-    add(b, slap(r, 900, 4200, .03, 1.0), 3.50)
-    tt = np.arange(int(.2 * SR)) / SR
-    chirp = np.sin(2 * np.pi * np.cumsum(190 + 520 * (1 - np.exp(-tt / .05))) / SR) * np.exp(-tt / .09)
-    add(b, (chirp * .45).astype(np.float32) * (np.random.default_rng(1).standard_normal(len(tt)) * .0 + 1), 3.505)
-    tt2 = np.arange(int(.5 * SR)) / SR
-    boing = np.sin(2 * np.pi * np.cumsum(210 * (1 + .12 * np.sin(2 * np.pi * 7 * tt2))) / SR) * np.exp(-tt2 / .16)
-    add(b, (boing * .22).astype(np.float32), 3.56)
-    cluster(b, r, 3.50, .5, 260, 30, 400, 3000, .45, .35, .8)
+    n = int(FLY_D * SR)
+    wh = bp(noise(r, n), 500, 2400) * hump(n) ** 2
+    add(b, wh * 1.6, FLY0)
+    add(b, thump(120, 55, .05, .1, .3, .95), IMP)
+    add(b, slap(r, 900, 4200, .03, 1.0), IMP)
+    tt = np.arange(int(.16 * SR)) / SR
+    chirp = np.sin(2 * np.pi * np.cumsum(190 + 520 * (1 - np.exp(-tt / .04))) / SR) * np.exp(-tt / .07)
+    add(b, (chirp * .4).astype(np.float32), IMP + .005)
+    tt2 = np.arange(int(.4 * SR)) / SR
+    boing = np.sin(2 * np.pi * np.cumsum(210 * (1 + .12 * np.sin(2 * np.pi * 8 * tt2))) / SR) * np.exp(-tt2 / .12)
+    add(b, (boing * .2).astype(np.float32), IMP + .05)
+    cluster(b, r, IMP, .4, 260, 30, 400, 3000, .45, .35, .8)
     for ti in SLAPS:
         add(b, slap(r, 900, 3800, .022, .55), ti)
         add(b, bubble(r.uniform(500, 800), .7, .4), ti)
-    add(b, gloop(r, 1.0, 380, 6.0, .4, 1.0) * np.sin(np.linspace(0, np.pi, int(1.0 * SR))), .1)
+    add(b, gloop(r, SL_D, 380, 7.0, .4, .8) * hump(int(SL_D * SR)), SL0)
     for ti in DRIPS:
-        add(b, bubble(r.uniform(380, 720), .85, .65, tau=.045), ti)
+        add(b, bubble(r.uniform(380, 720), .85, .65, tau=.04), ti)
     for ti in POPS:
         add(b, bubble(r.uniform(1800, 3600), .3, .35), ti)
     return finish(reverb(b, .18, .06))
@@ -253,18 +259,18 @@ def v4_asmr(seed=14):
     """АСМР-слайм: плотные мелкие чпоки и тянущиеся нити, без грохота."""
     r = np.random.default_rng(seed)
     b = np.zeros(N, np.float32)
-    add(b, air(r, .54, 300, 2200, 1.6, .22), 2.96)
-    cluster(b, r, 2.98, .52, 20, 320, 800, 4800, .2, .25, 1.4)
-    add(b, thump(95, 55, .06, .12, .3, .4), 3.50)
-    add(b, slap(r, 500, 2600, .05, .45), 3.50)
-    cluster(b, r, 3.50, .55, 700, 60, 500, 4500, .38, .28, .8)
+    add(b, air(r, FLY_D, 300, 2200, 1.6, .22), FLY0)
+    cluster(b, r, FLY0 + .02, FLY_D - .02, 20, 340, 800, 4800, .2, .25, 1.4)
+    add(b, thump(95, 55, .06, .12, .3, .4), IMP)
+    add(b, slap(r, 500, 2600, .05, .45), IMP)
+    cluster(b, r, IMP, .45, 700, 60, 500, 4500, .38, .28, .8)
     for ti in SLAPS:
         add(b, slap(r, 700, 3200, .03, .35), ti)
-    add(b, sticky(r, .45, .35), 3.56)
-    add(b, sticky(r, .35, .3), 3.78)
-    cluster(b, r, .06, 1.25, 220, 40, 700, 5200, .24, .25, .7)
-    for ti in [.2, .36, .52, .72, .9, 1.05]:
-        add(b, sticky(r, r.uniform(.14, .26), .26), ti)
+    add(b, sticky(r, .3, .35), IMP + .05)
+    add(b, sticky(r, .25, .3), IMP + .2)
+    cluster(b, r, SL0, SL_D + .1, 240, 40, 700, 5200, .24, .25, .7)
+    for ti in [.1, .2, .3, .42, .55]:
+        add(b, sticky(r, r.uniform(.1, .18), .26), ti)
     for ti in DRIPS:
         add(b, bubble(r.uniform(420, 800), .4, .42), ti)
     return finish(reverb(b, .15, .05), rms_target=.1)
@@ -274,18 +280,19 @@ def v5_acid(seed=15):
     """Кислота: шипение и пена, мелкие лопающиеся пузырьки."""
     r = np.random.default_rng(seed)
     b = np.zeros(N, np.float32)
-    n = int(.54 * SR); u = np.linspace(0, 1, n)
-    add(b, sizzle(r, .54, 900, 3500, .5) * u ** 1.6, 2.96)
-    add(b, thump(88, 46, .06, .13, .3, .85), 3.50)
-    add(b, hp(noise(r, int(.6 * SR)), 2800) * np.exp(-np.arange(int(.6 * SR)) / SR / .22) * .55, 3.50)
-    add(b, sizzle(r, .9, 1100, 3000, .4, .35), 3.52)
-    cluster(b, r, 3.50, .6, 450, 60, 600, 4800, .38, .3, .8)
+    n = int(FLY_D * SR); u = np.linspace(0, 1, n)
+    add(b, sizzle(r, FLY_D, 900, 3500, .5) * u ** 1.6, FLY0)
+    add(b, thump(88, 46, .06, .13, .3, .85), IMP)
+    nn = int(.5 * SR)
+    add(b, hp(noise(r, nn), 2800) * np.exp(-np.arange(nn) / SR / .18) * .55, IMP)
+    add(b, sizzle(r, .6, 1100, 3000, .4, .3), IMP + .02)
+    cluster(b, r, IMP, .45, 450, 60, 600, 4800, .38, .3, .8)
     for ti in SLAPS:
         add(b, slap(r, 900, 4000, .02, .4), ti)
-    add(b, sizzle(r, 1.2, 800, 3200, .32, .6) * np.sin(np.linspace(0, np.pi, int(1.2 * SR))) ** .6, .08)
-    cluster(b, r, .08, 1.2, 160, 30, 900, 5200, .26, .3, .8)
+    add(b, sizzle(r, SL_D + .1, 800, 3200, .32, .5) * hump(int((SL_D + .1) * SR)) ** .6, SL0)
+    cluster(b, r, SL0, SL_D, 170, 30, 900, 5200, .26, .3, .8)
     for ti in DRIPS:
-        add(b, sizzle(r, .09, 1500, 3500, .45, .03), ti)
+        add(b, sizzle(r, .07, 1500, 3500, .45, .025), ti)
         add(b, bubble(r.uniform(500, 900), .35, .3), ti)
     for ti in POPS:
         add(b, bubble(r.uniform(2200, 4200), .25, .3), ti)
@@ -296,20 +303,21 @@ def v6_cinema(seed=16):
     """Тяжёлый кинематограф: глубокий удар, гул, длинный хвост."""
     r = np.random.default_rng(seed)
     b = np.zeros(N, np.float32)
-    add(b, lp(air(r, .54, 70, 420, 2.4, .6), 600), 2.96)
-    add(b, thump(60, 36, .12, .45, 1.0, 1.0), 3.50)
-    add(b, lp(noise(r, int(.9 * SR)), 140) * np.exp(-np.arange(int(.9 * SR)) / SR / .35) * 5, 3.50)
-    add(b, slap(r, 400, 1800, .05, .6), 3.50)
-    cluster(b, r, 3.52, .6, 120, 15, 150, 900, .5, .22, .7)
+    add(b, lp(air(r, FLY_D, 70, 420, 2.4, .6), 600), FLY0)
+    add(b, thump(60, 36, .12, .4, .9, 1.0), IMP)
+    nn = int(.8 * SR)
+    add(b, lp(noise(r, nn), 140) * np.exp(-np.arange(nn) / SR / .3) * 5, IMP)
+    add(b, slap(r, 400, 1800, .05, .6), IMP)
+    cluster(b, r, IMP + .02, .5, 120, 15, 150, 900, .5, .22, .7)
     for ti in SLAPS:
         add(b, lp(slap(r, 300, 1500, .04, .45), 1800), ti)
         add(b, thump(90, 50, .05, .1, .2, .3), ti)
-    add(b, gloop(r, 1.1, 160, 3.0, .5, 1.0) * np.sin(np.linspace(0, np.pi, int(1.1 * SR))), .08)
+    add(b, gloop(r, SL_D, 160, 3.5, .5, 1.0) * hump(int(SL_D * SR)), SL0)
     for ti in DRIPS[::2]:
-        add(b, bubble(r.uniform(170, 320), .35, .5, tau=.07), ti)
+        add(b, bubble(r.uniform(170, 320), .35, .5, tau=.06), ti)
     for ti in POPS[::2]:
         add(b, bubble(r.uniform(700, 1400), .25, .2, tau=.02), ti)
-    return finish(reverb(b, .6, .3), rms_target=.12)
+    return finish(reverb(b, .55, .28), rms_target=.12)
 
 
 VARIANTS = [
@@ -328,8 +336,27 @@ def save(name, x):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
 
 
+def clip(x, t0, dur, fade=.01):
+    """Вырезать фрагмент петли (с переносом через шов) с короткими фейдами."""
+    i0 = int(t0 * SR); n = int(dur * SR)
+    y = np.take(x, (np.arange(n) + i0) % len(x)).astype(np.float32)
+    f = int(fade * SR)
+    y[:f] *= np.linspace(0, 1, f); y[-f:] *= np.linspace(1, 0, f)
+    return y
+
+
 if __name__ == "__main__":
     for key, title, fn in VARIANTS:
         x = fn()
         save(f"{key}.wav", x)
         print(key, title, "peak", round(float(np.max(np.abs(x))), 2), "rms", round(float(np.sqrt(np.mean(x ** 2))), 3))
+    # основной звук страницы цикла = вариант 1; короткие превью-фрагменты из него
+    base = v1_wet()
+    save("loop.wav", base)
+    save("sfx_splat.wav", clip(base, FLY0 - .02, .95))
+    save("sfx_slide.wav", clip(base, 0.0, .8))
+    r = np.random.default_rng(3)
+    d = np.zeros(int(.35 * SR), np.float32); d[:len(bubble(430, .45, 1.0))] += bubble(430, .45, 1.0)
+    save("sfx_drip.wav", finish(d))
+    p = np.zeros(int(.12 * SR), np.float32); pb = bubble(2400, .25, 1.0); p[:len(pb)] += pb
+    save("sfx_pop.wav", finish(p))
