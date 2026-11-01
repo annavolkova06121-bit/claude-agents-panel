@@ -1,0 +1,59 @@
+{
+  "name": "acid_slime_loop",
+  "title": "Кислотная слизь: вступление и плюха",
+  "version": 1,
+  "description": "Автомонтаж: в начале ролика кислотная плёнка стекает и открывает кадр, в конце из центра прилетает плюха и закрывает его (цикл бесшовный). Звук «Кислота и шипение» приглушён и уходит под голос.",
+  "frame": { "width": 1080, "height": 1920, "fps": 60 },
+
+  "intro": {
+    "enabled": true,
+    "start": "video_start",
+    "duration_s": 0.6167,
+    "overlay_alpha": "intro/overlay.webm",
+    "overlay_rgb": "intro/overlay_rgb.mp4",
+    "overlay_matte": "intro/overlay_alpha.mp4",
+    "audio": "audio/intro.wav",
+    "audio_gain_db": -14,
+    "audio_hf_shelf_db": -3,
+    "note": "Звук вступления самый «ухо-бьющий» (шипение и пузыри), поэтому он тише всего и со срезом верхов."
+  },
+
+  "outro": {
+    "enabled": true,
+    "start": "video_end_minus_duration",
+    "duration_s": 0.6667,
+    "overlay_alpha": "outro/overlay.webm",
+    "overlay_rgb": "outro/overlay_rgb.mp4",
+    "overlay_matte": "outro/overlay_alpha.mp4",
+    "audio": "audio/outro.wav",
+    "audio_gain_db": -12,
+    "audio_hf_shelf_db": 0,
+    "note": "Концовка: подлёт, удар и брызги. Последний кадр полностью закрыт кислотной массой."
+  },
+
+  "levels": {
+    "note": "Быстрый выбор громкости: [усиление вступления, усиление концовки] в дБ. По умолчанию normal.",
+    "quiet":  [-20, -16],
+    "normal": [-14, -12],
+    "loud":   [-8, -7]
+  },
+
+  "mix": {
+    "duck": {
+      "enabled": true,
+      "threshold": 0.125,
+      "ratio": 3,
+      "attack_ms": 10,
+      "release_ms": 300,
+      "note": "Пока в основной дорожке звучит голос (около -16 LUFS), звук пресета прижимается ещё примерно на 4-5 дБ; в тишине и под тихой дорожкой звучит с заданным усилением."
+    },
+    "limiter": { "enabled": true, "limit": 0.97, "attack_ms": 1, "release_ms": 60,
+      "note": "Страховка от перегруза при сложении с громкой дорожкой; короткая атака, чтобы звук не сдвигался относительно картинки." }
+  },
+
+  "encode": {
+    "video": ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p"],
+    "audio": ["-c:a", "aac", "-b:a", "192k"],
+    "container": ["-movflags", "+faststart"]
+  }
+}

@@ -1,0 +1,360 @@
+<title>Цикл плюхи</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=JetBrains+Mono:wght@400;600&family=M+PLUS+Rounded+1c:wght@900&family=Onest:wght@400;600&family=Rubik:wght@900&display=swap">
+<style>
+/* Концепт: ролик закольцован. В конце на кадр падает плюха слизи, растекается на весь экран и ровно этим же кадром начинается ролик, после чего слизь сползает вниз. Звук свёрнут по кругу, без щелчка на шве. */
+:root{--ink:#050b06;--bog:#0c1f10;--moss:#1b4a1e;--line:#1f3a22;--acid:#c6ff00;--toxic:#3cff2e;--bile:#e9ff8a;--spore:#b24bff;--fg:#e8f5da;--muted:#93ad8c;
+  --f-disp:'Dela Gothic One',sans-serif;--f-body:'Onest',system-ui,sans-serif;--f-mono:'JetBrains Mono',ui-monospace,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--fg);font:16px/1.55 var(--f-body);padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+h1,h2{font-family:var(--f-disp);font-weight:400;margin:0;line-height:1.05;text-wrap:balance}
+h1{font-size:clamp(28px,5vw,44px);color:var(--acid)}h2{font-size:clamp(20px,3vw,26px);color:var(--bile)}
+p{margin:0;max-width:65ch}.note{color:var(--muted);font-size:14px}.lead{color:var(--muted);margin-top:10px}
+.tag{font:600 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--spore)}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+button,input{font:inherit}
+.studio{display:grid;grid-template-columns:minmax(250px,340px) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:820px){.studio{grid-template-columns:1fr;max-width:380px;margin:0 auto;width:100%}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.lab{font:600 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{background:var(--bog);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;min-height:40px}
+.chip[aria-pressed=true]{background:var(--acid);color:var(--ink);border-color:var(--acid);font-weight:600}
+.chip:hover{border-color:var(--acid)}:is(button,input):focus-visible{outline:2px solid var(--toxic);outline-offset:2px}
+input[type=range]{width:100%;accent-color:var(--acid);min-height:32px}
+.tm{font:600 13px var(--f-mono);color:var(--muted);margin-left:auto}
+.shot{container-type:inline-size;position:relative;aspect-ratio:9/16;overflow:hidden;border-radius:16px;border:1px solid var(--line);background:#000;isolation:isolate}
+#stage{position:absolute;inset:0}
+.foot{position:absolute;inset:0;background:radial-gradient(100% 70% at 80% 35%,#1c4a24,#0d2412 55%,#050b06)}
+.foot svg{position:absolute;inset:0;width:100%;height:100%}
+.mouth{transform-box:fill-box;transform-origin:center;animation:talk .28s ease-in-out infinite alternate}
+@keyframes talk{from{transform:scaleY(.25)}to{transform:scaleY(1.25)}}
+.fl{position:absolute;left:0;right:0;bottom:30%;text-align:center;font:600 2.4cqw var(--f-mono);letter-spacing:.14em;color:rgba(255,255,255,.4);text-transform:uppercase}
+canvas.c{position:absolute;inset:0;width:100%;height:100%;z-index:3}
+canvas.goo{filter:url(#gooA)}
+html.ov,html.ov body{background:transparent!important}
+.ov body{padding:0;margin:0}
+.ov .wrap{display:block;max-width:none;margin:0;padding:0}
+.ov header,.ov .wrap>section,.ov .studio>.col:nth-child(2),.ov .chips,.ov #seek,.ov .safe,.ov .foot,.ov .cap,.ov audio{display:none!important}
+.ov .studio,.ov .studio>.col{display:block}
+.ov .shot{position:fixed;left:0;top:0;width:360px;height:640px;aspect-ratio:auto;border:0;border-radius:0;background:transparent}
+#root.bright canvas.goo{filter:url(#gooA) drop-shadow(0 0 7px rgba(200,255,0,.6))}
+.cap{position:absolute;left:50%;top:66%;transform:translate(-50%,-50%);z-index:6;width:92%;text-align:center;
+  font:900 8cqw/1.1 'Rubik','M PLUS Rounded 1c','Dela Gothic One',sans-serif;color:#fff;paint-order:stroke fill;-webkit-text-stroke:1.8cqw #000}
+.cap.hl{color:var(--acid)}
+.safe{position:absolute;inset:0;z-index:30;pointer-events:none;display:none}
+.on .safe{display:block}
+.safe .u{position:absolute;background:repeating-linear-gradient(135deg,rgba(255,60,60,.28) 0 6px,rgba(255,60,60,.12) 6px 12px)}
+.safe .top{left:0;right:0;top:0;height:7%}.safe .bot{left:0;right:0;bottom:0;height:22%}.safe .rt{right:0;top:7%;bottom:22%;width:15%}
+.ph{border:1px solid var(--line);border-radius:12px;background:var(--bog);padding:14px;display:flex;flex-direction:column;gap:6px}
+.steps{display:grid;grid-template-columns:78px 1fr;gap:6px 12px;margin:0;font-size:14px}
+.steps dt{font:600 12px/1.6 var(--f-mono);color:var(--bile)}.steps dd{margin:0}.steps .on{color:var(--acid)}
+.spec{display:grid;grid-template-columns:minmax(150px,230px) 1fr;gap:8px 18px;margin:0}
+.spec dt{font:600 12px/1.6 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--acid)}.spec dd{margin:0}
+@media (max-width:560px){.spec{grid-template-columns:1fr;gap:2px}.spec dd{margin-bottom:10px}}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--bog)}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:620px}
+th,td{border-bottom:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+th{font:600 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td:first-child{color:var(--acid);font-weight:600}
+.vidrow{display:grid;grid-template-columns:minmax(200px,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:640px){.vidrow{grid-template-columns:1fr;max-width:320px}}
+.vids{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+video{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:#000}
+.path{border-left:3px solid var(--acid);padding:2px 0 2px 14px}.path b{color:var(--bile);display:block}
+@media (prefers-reduced-motion:reduce){.mouth{animation:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs><filter id="gooA" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b"/>
+    <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="g"/>
+    <feComposite in="SourceGraphic" in2="g" operator="atop"/></filter></defs>
+</svg>
+
+<div class="wrap bright" id="root">
+  <header>
+    <span class="tag">Цикл · звук · слова из слизи</span>
+    <h1>Цикл плюхи</h1>
+    <p class="lead">Ролик закольцован. В конце на кадр летит плюха слизи, бьётся об «объектив» и растекается на весь экран. Тем же кадром начинается следующий круг: слизь сползает вниз и открывает ролик. Звук свёрнут по кругу, поэтому шов не слышен.</p>
+  </header>
+
+  <section>
+    <h2>Видео цикла со звуком</h2>
+    <div class="vidrow">
+      <video class="vid1" src="" autoplay loop muted playsinline controls></video>
+      <p class="note">Это записанный цикл 3,6 секунды со звуком «Кислота и шипение»: картинка и звук вместе. Включите звук значком динамика в плеере. Ниже интерактивная версия: там звук включается кнопкой «Звук выкл.» под кадром.</p>
+    </div>
+  </section>
+
+  <div class="studio">
+    <div class="col">
+      <div class="shot" id="shot">
+        <div id="stage">
+          <div class="foot" id="foot">
+            <svg viewBox="0 0 100 177.78" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <path d="M-4 178 Q4 120 50 112 Q96 120 104 178 Z" fill="#12301a" stroke="#c6ff00" stroke-width=".4"/>
+              <ellipse cx="50" cy="66" rx="21" ry="26" fill="#1b4a1e" stroke="#c6ff00" stroke-width=".4"/>
+              <circle cx="42" cy="62" r="2.2" fill="#e9ff8a"/><circle cx="58" cy="62" r="2.2" fill="#e9ff8a"/>
+              <ellipse class="mouth" cx="50" cy="80" rx="6.5" ry="3" fill="#050b06" stroke="#c6ff00" stroke-width=".4"/>
+            </svg><span class="fl">вы / аватар · заглушка</span>
+          </div>
+          <canvas class="c goo" id="body" width="270" height="480"></canvas>
+          <canvas class="c" id="over" width="270" height="480"></canvas>
+        </div>
+        <div class="cap" id="cap"></div>
+        <div class="safe"><div class="u top"></div><div class="u bot"></div><div class="u rt"></div></div>
+      </div>
+      <input type="range" id="seek" min="0" max="3.6" step="0.01" value="0" aria-label="Время">
+      <div class="chips"><button class="chip" id="play" aria-pressed="false">Пауза</button><button class="chip" id="snd" aria-pressed="false">Звук выкл.</button><button class="chip" id="slow" aria-pressed="false">Медленно ×0,3</button><button class="chip" id="trn" aria-pressed="true">Прозрачность: динамич.</button><button class="chip" id="clr" aria-pressed="true">Цвет: яркий</button><span class="tm" id="tm">0.00 с</span></div>
+      <div class="chips"><button class="chip" data-v="jp" aria-pressed="true">日本語</button><button class="chip" data-v="ru" aria-pressed="false">Русский</button><button class="chip" data-v="en" aria-pressed="false">English</button><button class="chip" id="safe" aria-pressed="false">Зоны</button></div>
+      <audio id="loopA" src="" loop preload="auto"></audio>
+    </div>
+
+    <div class="col">
+      <div class="ph"><span class="lab">Сейчас</span><div id="now"></div></div>
+      <dl class="steps" id="steps">
+        <dt>0,00 с</dt><dd data-a="0">Шов: кадр залит слизью, ровно как в конце прошлого круга. Субтитр и голос с первого кадра.</dd>
+        <dt>0,05 с</dt><dd data-a="0.05">Слизь начинает сползать вниз. Толстые подтёки тянутся от массы и стекают вместе с ней, чуть отставая, с кончиков срываются крупные капли. Плёнка у кромки прозрачнее.</dd>
+        <dt>0,60 с</dt><dd data-a="0.6">Кадр чистый, идёт рассказ.</dd>
+        <dt>2,95 с</dt><dd data-a="2.95">Из глубины кадра, от центра, на нас летит плюха: сначала точка, на подлёте она быстро растёт, вокруг неё кружатся брызги, от неё расходятся линии скорости.</dd>
+        <dt>3,25 с</dt><dd data-a="3.25">Удар: камера вздрагивает, из центра бьют щупальца слизи и десятки брызг, часть брызг прилипает к объективу. Плёнка пока полупрозрачная и по мере растекания густеет.</dd>
+        <dt>3,55 с</dt><dd data-a="3.55">Слизь покрыла весь экран, прозрачность минимальная. Дальше шов на 0,00 с.</dd>
+      </dl>
+      <p class="note">«Звук» нужно включить кнопкой: браузер не играет звук сам. Звук здесь черновой, синтезированный кодом, и показывает рисунок, а не итоговое качество.</p>
+    </div>
+  </div>
+
+  <section>
+    <h2>Звук: сочный саунд-дизайн</h2>
+    <p class="note">Четыре слоя в каждом ударе: сабы (40–90 Гц), тело (150–500 Гц), мокрое (1–3 кГц), воздух (6–12 кГц). Так звук получается плотным и влажным.</p>
+    <div class="chips" id="sfx">
+      <button class="chip" data-s="splat">Плюха: подлёт и удар</button>
+      <button class="chip" data-s="slide">Сползание слизи</button>
+      <button class="chip" data-s="drip">Капля</button>
+      <button class="chip" data-s="pop">Пузырёк</button>
+    </div>
+    <audio id="a_splat" src="" preload="auto"></audio><audio id="a_slide" src="" preload="auto"></audio><audio id="a_drip" src="" preload="auto"></audio><audio id="a_pop" src="" preload="auto"></audio>
+    <div class="scroll"><table>
+      <thead><tr><th>Слой</th><th>Когда в цикле</th><th>Что это</th><th>Частоты</th><th>Громкость</th></tr></thead>
+      <tbody>
+        <tr><td>Подлёт</td><td>2,95–3,25 с</td><td>Нарастающее шипение (высокочастотный шум с прерываниями), без свиста</td><td>выше 3,5 кГц</td><td>−10 дБ</td></tr>
+        <tr><td>Удар</td><td>3,25 с</td><td>Глухой «бам», тон падает как у барабана</td><td>88 → 46 Гц, 130 мс</td><td>−2 дБ</td></tr>
+        <tr><td>«Пшш»</td><td>3,25–3,5 с</td><td>Вспышка шипения при ударе, спад за 0,18 с</td><td>выше 2,8 кГц</td><td>−6 дБ</td></tr>
+        <tr><td>Пена</td><td>3,27–3,87 с</td><td>Шипение растекающейся слизи, затухает</td><td>выше 3 кГц</td><td>−8 дБ</td></tr>
+        <tr><td>Пузырьки</td><td>3,25–3,7 с</td><td>Рой лопающихся пузырьков, тон растёт</td><td>600–4800 Гц</td><td>−7 дБ</td></tr>
+        <tr><td>Шлепки о стекло</td><td>3,28 · 3,32 · 3,37 · 3,43 · 3,49 с</td><td>Короткие мокрые шлепки брызг</td><td>0,9–4 кГц</td><td>−8 дБ</td></tr>
+        <tr><td>Сползание</td><td>0,04–0,84 с</td><td>Шипение с мелкими пузырьками, затухает вместе с массой</td><td>выше 3,2 кГц</td><td>−9 дБ</td></tr>
+        <tr><td>Срыв капель</td><td>0,22 · 0,28 · 0,30 · 0,34 · 0,37 · 0,40 · 0,43 · 0,46 · 0,52 с</td><td>Короткое «пст» шипения плюс «плоп», тон растёт</td><td>500–900 Гц</td><td>−7 дБ</td></tr>
+        <tr><td>Лопающиеся пузырьки</td><td>0,05–0,60 с</td><td>Мелкие щелчки с растущим тоном</td><td>2,2–4,2 кГц</td><td>−11 дБ</td></tr>
+      </tbody>
+    </table></div>
+    <dl class="spec">
+      <dt>Шов</dt><dd>Хвост удара в конце продолжается в начале ролика (звук свёрнут по кругу), поэтому на повторе нет щелчка и паузы.</dd>
+      <dt>Голос главный</dt><dd>Эффекты тише голоса на 6–10 дБ, музыка под голосом притихает на 12–15 дБ. Громче голоса только сам удар.</dd>
+      <dt>Громкость</dt><dd>Ориентир для Shorts около −14 LUFS в целом, пик не выше −1 дБ. Точные цифры проверим при сведении.</dd>
+      <dt>Настоящие звуки</dt><dd>Для итога лучше записать: ладонь в густом геле или йогурте (хлюп), шлепок мокрой тряпкой по столу (удар), пузырьки через трубочку (пузырьки), тянущийся клей с крахмалом (сползание). Их складываем с синтезированными слоями.</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Слова из слизи</h2>
+    <p class="note">Слово не просто появляется: из комка слизи оно стягивается в буквы за 0,15–0,4 секунды, а брызги втягиваются внутрь. Потом буквы стоят неподвижно, чтобы читались.</p>
+    <div class="vids">
+      <div><video src="" autoplay loop muted playsinline controls></video></div>
+      <div><video src="" autoplay loop muted playsinline controls></video></div>
+      <div><video src="" autoplay loop muted playsinline controls></video></div>
+    </div>
+    <dl class="spec">
+      <dt>Как</dt><dd>Размытие маски слов плавно убывает, поле усиливается и режется порогом: масса остаётся, форма стягивается из комка в буквы. Слово едет снизу вверх с небольшим перелётом.</dd>
+      <dt>Стиль букв</dt><dd>Свои округлые буквы в духе вашего примера: толстая форма, блик по верхней кромке, подтёки с нижних краёв. Готовую иллюстрацию с картинки я не копировал.</dd>
+      <dt>Скорость</dt><dd>Один кадр около 0,3 секунды расчёта. Файл слова кэшируется, повторное слово не пересчитывается.</dd>
+    </dl>
+    <div class="path"><b>Что нужно от вас</b>Нравится ли вам «шлёп» и сползание в конце и начале? Какую громкость плюхи хотите (дерзкую или мягче)? И сочные слова берём на субтитры или только на заголовки?</div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)};
+  function c01(x){return Math.max(0,Math.min(1,x))}
+  function eo(x){x=c01(x);return 1-Math.pow(1-x,3)}
+  function ei(x){x=c01(x);return x*x*x}
+  function sm(x){x=c01(x);return x*x*(3-2*x)}
+  function RNG(s){return function(){s=(s*16807)%2147483647;return s/2147483647}}
+  var W=270,H=480,LOOP=3.6,INTRO_END=.6,SPLAT0=2.95,IMPACT=3.25,FULL=3.55,PI2=6.2832,RM=Math.hypot(W/2,H/2)*1.3;
+  var S={t:0,playing:true,slow:false,lang:'jp',sound:false,trans:true,bright:true};
+  var CAPS={jp:['惑星を選べ','ここで','1年','生き延びろ','できるか','答えは','最後に','ある'],ru:['Выбери','планету','и выживи','здесь','целый год','ответ','в конце','ролика'],en:['Pick','a planet','and survive','a year','here','the answer','is at','the end']};
+  var bc=$('#body'),bx=bc.getContext('2d'),oc=$('#over'),ox=oc.getContext('2d'),stage=$('#stage'),foot=$('#foot'),au=$('#loopA');
+  var OV=(location.hash||'').indexOf('overlay')>=0,SCV=OV?4:1,OVS=OV?1.06:1;
+  if(OV){document.documentElement.classList.add('ov');bc.width=270*SCV;bc.height=480*SCV;oc.width=270*SCV;oc.height=480*SCV;if(location.hash.indexOf('bright=0')>=0){S.bright=false;$('#root').classList.remove('bright')}}
+  var R=RNG(77),bub=[],tong=[],runners=[],spl=[],i;
+  for(i=0;i<36;i++)bub.push({x:R()*W,y:R()*H,r:4+R()*11,ph:R()*6.28,k:1+Math.floor(R()*2),a:3+R()*8});
+  for(i=0;i<11;i++)tong.push({x:8+i*(W-16)/10+(R()-.5)*12,w:9+R()*16,F:8+R()*22,o:R()*.25});
+  for(i=0;i<14;i++)runners.push({x:10+R()*(W-20),ts:.06+R()*.24,r:4+R()*5,g:1400+R()*1200,wb:R()*6});
+  for(i=0;i<28;i++)spl.push({a:R()*PI2,v:120+R()*300,r:3+R()*6});
+  var FING=[R()*6,R()*6,R()*6];
+  var TEN=[],SP2=[];
+  for(i=0;i<13;i++)TEN.push({a:i/13*PI2+(R()-.5)*.35,ph:.35+R()*.65,w:9+R()*10});
+  for(i=0;i<72;i++){var big=i<22;SP2.push({a:R()*PI2,v:(big?420:220)+R()*(big?1000:800),r:big?4+R()*6:1.6+R()*3,d:R()*.05,k:(i%3===0)?1:0,st:.1+R()*.16,str:i<16})}
+  var P0=[30,500],P1=[8,120],P2=[W/2,H*.47];
+  function spread(s){s=c01(s);return 64+(RM-64)*Math.pow(s,1.45)}
+  function flyPos(u){var k=1-u;return[W/2+22*Math.sin(u*7.5)*k*(.4+.6*u),H*.47-14*k+10*Math.sin(u*5.3+1)*k]}
+  function bez(u){var a=(1-u)*(1-u),b=2*u*(1-u),c=u*u;return[a*P0[0]+b*P1[0]+c*P2[0],a*P0[1]+b*P1[1]+c*P2[1]]}
+  function bezV(u){return[2*(1-u)*(P1[0]-P0[0])+2*u*(P2[0]-P1[0]),2*(1-u)*(P1[1]-P0[1])+2*u*(P2[1]-P1[1])]}
+  function stretchPts(pts,cx,cy,ang,sx,sy){var ca=Math.cos(ang),sa=Math.sin(ang);return pts.map(function(p){var dx=p[0]-cx,dy=p[1]-cy,rx=dx*ca+dy*sa,ry=-dx*sa+dy*ca;rx*=sx;ry*=sy;return[cx+rx*ca-ry*sa,cy+rx*sa+ry*ca]})}
+
+  function surf(x,t,L,amp){
+    var y=L+amp*Math.sin(x*.045+t*9)+amp*.5*Math.sin(x*.1-t*7);
+    for(var k=0;k<tong.length;k++){var g=tong[k],e=Math.sin(Math.PI*c01((t-.04-g.o*.4)/.42));if(e>0){var d=(x-g.x)/g.w;y-=g.F*e*Math.exp(-d*d)}}
+    return y;
+  }
+  function poly(c,pts){c.beginPath();pts.forEach(function(p,k){k?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1])});c.closePath()}
+  function blobPts(cx,cy,r,fing,t){var pts=[],n=96;for(var k=0;k<n;k++){var th=k/n*PI2,f=(Math.sin(5*th+FING[0]+(t||0)*7)+.6*Math.sin(9*th+FING[1]-(t||0)*5)+.4*Math.sin(14*th+FING[2]+(t||0)*9))/2;pts.push([cx+Math.cos(th)*r*(1+fing*f),cy+Math.sin(th)*r*(1+fing*f)])}return pts}
+  /* форма покрытия: возвращает {pts,full} или null */
+  function shape(t){
+    if(t<INTRO_END){
+      var pl=c01((t-.05)/.5),L=-50+sm(pl)*(H+150),amp=8*(1-pl*.5);if(L>H+60)return null;
+      var pts=[[-6,H+40]];for(var x=-6;x<=W+6;x+=4)pts.push([x,surf(x,t,L,amp)]);pts.push([W+6,H+40]);
+      return{pts:pts,L:L,amp:amp,kind:'run',pl:pl};
+    }
+    if(t<SPLAT0)return null;
+    if(t<IMPACT){var f=(t-SPLAT0)/(IMPACT-SPLAT0),u=f,pc=flyPos(u),pn=flyPos(Math.min(1,u+.02)),ang=Math.atan2(pn[1]-pc[1],pn[0]-pc[0]),r=4+60*Math.pow(u,2.2),stv=1.08+.25*(1-u);
+      return{pts:stretchPts(blobPts(pc[0],pc[1],r,.1,t),pc[0],pc[1],ang,stv,1/Math.sqrt(stv)),kind:'fly',f:f,u:u,pc:pc,ang:ang,r:r}}
+    if(t<FULL){var s=(t-IMPACT)/(FULL-IMPACT),Rr=spread(s);return{pts:blobPts(W/2,H*.47,Rr,.26*(1-s*.7),t),kind:'splat',s:s}}
+    return{full:true,kind:'full'};
+  }
+  function path(c,sh){if(sh.full){c.beginPath();c.rect(-10,-10,W+20,H+20)}else poly(c,sh.pts)}
+  function bubble(c,x,y,r){c.lineWidth=1.5;c.strokeStyle='rgba(255,255,255,.65)';c.fillStyle='rgba(255,255,255,.16)';c.beginPath();c.arc(x,y,r,0,PI2);c.fill();c.stroke();c.fillStyle='rgba(255,255,255,.9)';c.beginPath();c.ellipse(x-r*.35,y-r*.38,r*.28,r*.16,-.7,0,PI2);c.fill()}
+
+  function Lof(t){var pl=c01((t-.05)/.5);return -50+sm(pl)*(H+150)}
+  var FG=[],BX0=[28,71,114,156,199,242],MX0=[50,135,220];
+  for(i=0;i<6;i++)FG.push({x:BX0[i]+(R()-.5)*14,T:18+R()*11,D:60+R()*50,s:.05+R()*.12,tp:.22+i*.06+R()*.03,sw:R()*6.28,v:.7});
+  for(i=0;i<3;i++)FG.push({x:MX0[i]+(R()-.5)*10,T:12+R()*5,D:35+R()*25,s:.06+R()*.14,tp:.3+R()*.15,sw:R()*6.28,v:.6});
+  function fyb(f,t){return surf(f.x,t,Lof(t),8*(1-c01((t-.05)/.5)*.5))+8}
+  /* толстые подтёки: тянутся от массы вверх, стекают вместе с ней; с кончика срывается крупная капля */
+  function drawFingers(t,g,heads){
+    FG.forEach(function(f){
+      var yb=fyb(f,t),det=t>=f.tp,gr=sm((t-f.s)/.14),len=f.D*gr*(det?1-c01((t-f.tp)/.14):1),T=f.T,rh=T*.6,yh=yb-len,k;
+      if(len>5){
+        var n=14,L1=[],R1=[];
+        for(k=0;k<=n;k++){var u=k/n,yy=yh+u*len,sway=Math.sin(Math.PI*u+f.sw+t*5)*T*.3*(1-u),hw=T*(.2+.55*Math.pow(u,1.3))*(det?(.4+.6*u):1),cx=f.x+sway;L1.push([cx-hw,yy]);R1.push([cx+hw,yy])}
+        bx.fillStyle=g;bx.beginPath();bx.moveTo(L1[0][0],L1[0][1]);for(k=1;k<=n;k++)bx.lineTo(L1[k][0],L1[k][1]);for(k=n;k>=0;k--)bx.lineTo(R1[k][0],R1[k][1]);bx.closePath();bx.fill();
+        if(!det){var hx=f.x+Math.sin(f.sw+t*5)*T*.3,rb=rh*Math.sqrt(gr);bx.beginPath();bx.arc(hx,yh+rb*.35,rb,0,PI2);bx.fill();heads.push([hx,yh+rb*.35,rb])}
+      }
+      if(det){
+        var a=t-f.tp,ybp=fyb(f,f.tp),yhp=ybp-f.D*sm((f.tp-f.s)/.14),v0=f.v*(Lof(f.tp+.01)-Lof(f.tp))/.01,yd=yhp+rh*.35+v0*a+.5*1500*a*a,xd=f.x+Math.sin(f.sw+f.tp*5)*T*.3;
+        if(yd<H+40){var so=1-sm((t-.95)/.25);if(so>.02){var rd=rh*.95*so,tl=Math.min(yd-yhp,rd*7);
+          bx.fillStyle=g;bx.beginPath();bx.moveTo(xd-rd*.28,yd-tl);bx.lineTo(xd+rd*.28,yd-tl);bx.lineTo(xd+rd*.8,yd-rd*.5);bx.lineTo(xd-rd*.8,yd-rd*.5);bx.closePath();bx.fill();
+          bx.beginPath();bx.ellipse(xd,yd,rd,rd*1.2,0,0,PI2);bx.fill();heads.push([xd,yd,rd])}}
+      }
+    });
+  }
+  function drawRunners(t,sh,DC,heads){
+    var run=sh&&sh.kind==='run',Ln=run?sh.L:0,am=run?sh.amp:8;
+    bx.fillStyle=DC;
+    runners.forEach(function(r){
+      var a=t-r.ts;if(a<0)return;
+      var L0=-50+sm(c01((r.ts-.05)/.5))*(H+150),y0=surf(r.x,r.ts,L0,8)+4;
+      var gr=eo(a/.09),asl=Math.max(0,a-.07),y=y0+.5*r.g*asl*asl,len=y-y0,so=1-sm((t-.75)/.3);
+      if(so<=.02||y>H+30)return;
+      var rad=r.r*gr*so;if(rad<.5)return;
+      var rx=r.x+Math.sin(a*9+r.wb)*rad*.1;
+      /* нить от капли к плёнке: тянется и тончает, потом рвётся */
+      if(run&&a<.12){var ys=surf(r.x,t,Ln,am);if(ys>y+rad*.6){var k=c01(a/.12),w0=Math.max(.7,rad*(.34*(1-k)+.08)),w1=w0*2.2;
+        bx.beginPath();bx.moveTo(rx-w0*.5,y+rad*.6);bx.lineTo(rx+w0*.5,y+rad*.6);bx.lineTo(rx+w1*.5,ys+2);bx.lineTo(rx-w1*.5,ys+2);bx.closePath();bx.fill()}}
+      /* след над каплей, когда она поползла */
+      var trail=Math.min(len,rad*9);
+      if(trail>1){bx.beginPath();bx.moveTo(rx-.08*rad,y-trail);bx.lineTo(rx+.08*rad,y-trail);bx.lineTo(rx+rad*.42,y-rad*.6);bx.lineTo(rx-rad*.42,y-rad*.6);bx.closePath();bx.fill()}
+      /* головка и шейка */
+      bx.beginPath();bx.ellipse(rx,y,rad*(1+.1*Math.min(1,len/60)),rad*1.18,0,0,PI2);bx.fill();
+      bx.beginPath();bx.moveTo(rx-rad*.5,y-rad*.2);bx.quadraticCurveTo(rx,y-rad*2.0,rx+rad*.5,y-rad*.2);bx.fill();
+      for(var kb=1;kb<=2;kb++){if(len>kb*rad*4.2){bx.beginPath();bx.arc(rx+Math.sin(a*7+kb)*rad*.1,y-kb*rad*3.6,rad*(.34-.1*kb),0,PI2);bx.fill()}}
+      heads.push([rx,y,rad]);
+    });
+  }
+  function render(){
+    var t=S.t;bx.setTransform(SCV,0,0,SCV,0,0);ox.setTransform(SCV,0,0,SCV,0,0);bx.clearRect(0,0,W,H);ox.clearRect(0,0,W,H);
+    var sh=shape(t),g=bx.createLinearGradient(0,0,0,H),DC=S.bright?'#d6ff1c':'#b4f01c',heads=[];
+    if(S.bright){g.addColorStop(0,'#f5ff3a');g.addColorStop(.45,'#c4ff12');g.addColorStop(1,'#33ff1a')}else{g.addColorStop(0,'#dcff32');g.addColorStop(1,'#2fcc19')}
+    /* динамическая прозрачность: в начале по мере стекания растёт, к концу (покрытие) минимальная */
+    var O=1,maskCss='none';
+    if(S.trans){
+      if(t<INTRO_END+.6){var plx=c01((t-.05)/.5),aTop=1-.5*sm(plx),aF=1-.22*sm(plx);if(sh&&sh.kind==='run'){var Lp=sh.L/H*100;maskCss='linear-gradient(to bottom, rgba(0,0,0,'+aF.toFixed(3)+') '+(Lp-18).toFixed(1)+'%, rgba(0,0,0,'+aTop.toFixed(3)+') '+Lp.toFixed(1)+'%, rgba(0,0,0,1) '+(Lp+38).toFixed(1)+'%)'}else if(t>.1){maskCss='linear-gradient(to bottom, rgba(0,0,0,'+aF.toFixed(3)+') 0%, rgba(0,0,0,'+aF.toFixed(3)+') 100%)'}}
+      else if(t>=SPLAT0&&t<IMPACT)O=.85;
+      else if(t>=IMPACT&&t<FULL)O=.62+.38*eo((t-IMPACT)/(FULL-IMPACT));
+    }
+    bc.style.opacity=O;oc.style.opacity=O;bc.style.webkitMaskImage=maskCss;bc.style.maskImage=maskCss;oc.style.webkitMaskImage=maskCss;oc.style.maskImage=maskCss;
+    if(sh){bx.save();path(bx,sh);bx.fillStyle=g;bx.fill();bx.restore();
+      /* бегущие капли в зоне очистки */
+      if(sh.kind==='run'){
+      }
+      if(sh.kind==='fly'&&sh.r>5){bx.fillStyle=DC;for(var kk=0;kk<5;kk++){var an=kk*1.26+sh.u*9,ds=sh.r*(1.4+.28*Math.sin(sh.u*11+kk)),rb=sh.r*(.15+.05*(kk%2));bx.beginPath();bx.arc(sh.pc[0]+Math.cos(an)*ds,sh.pc[1]+Math.sin(an)*ds,Math.max(1,rb),0,PI2);bx.fill()}}
+      if(sh.kind==='splat'){var Rr0=spread(sh.s);bx.fillStyle=g;TEN.forEach(function(q){var lead=(.10+.26*q.ph)*Math.pow(1-sh.s,.85),D=Rr0*(1+lead),r0=Rr0*.5,w0=q.w*(1-.4*sh.s),ca=Math.cos(q.a),sa=Math.sin(q.a),nx=-sa,ny=ca,cx0=W/2,cy0=H*.47;
+        bx.beginPath();bx.moveTo(cx0+ca*r0+nx*w0,cy0+sa*r0+ny*w0);bx.lineTo(cx0+ca*D+nx*w0*.42,cy0+sa*D+ny*w0*.42);bx.lineTo(cx0+ca*D-nx*w0*.42,cy0+sa*D-ny*w0*.42);bx.lineTo(cx0+ca*r0-nx*w0,cy0+sa*r0-ny*w0);bx.closePath();bx.fill();
+        bx.beginPath();bx.arc(cx0+ca*D,cy0+sa*D,w0*.55,0,PI2);bx.fill()})}
+    }
+    /* брызги после удара */
+    if(t<INTRO_END+.6)drawFingers(t,g,heads);
+    if(t>=IMPACT&&t<FULL){var tau=t-IMPACT,cx0=W/2,cy0=H*.47;bx.fillStyle=DC;bx.strokeStyle=DC;bx.lineCap='round';
+      SP2.forEach(function(p){
+        var a=tau-p.d;if(a<0||a>.75)return;
+        var vx=Math.cos(p.a)*p.v,vy=Math.sin(p.a)*p.v,gx=650,x=cx0+vx*a,y=cy0+vy*a+.5*gx*a*a;
+        if(p.k===1&&a>=p.st){var as=p.st,xl=cx0+vx*as,yl=cy0+vy*as+.5*gx*as*as,g2=eo((a-p.st)/.09),rr2=p.r*(1+1.4*g2);
+          if(xl>-20&&xl<W+20&&yl<H+20){bx.beginPath();bx.ellipse(xl,yl,rr2*(1+.25*g2),rr2,Math.atan2(vy,vx),0,PI2);bx.fill()}return}
+        var rr=p.r*(1-a/.85);if(rr<.7||x<-40||x>W+40||y>H+40)return;
+        var sp=Math.hypot(vx,vy+gx*a),ang=Math.atan2(vy+gx*a,vx),Ln=rr*(1+Math.min(1.8,sp/240));
+        if(p.str&&a<.2){bx.lineWidth=Math.max(1.4,rr*.5*(1-a/.2));bx.beginPath();bx.moveTo(cx0,cy0);bx.lineTo(x,y);bx.stroke()}
+        bx.save();bx.translate(x,y);bx.rotate(ang);bx.beginPath();bx.ellipse(0,0,Ln,rr,0,0,PI2);bx.fill();bx.beginPath();bx.moveTo(-Ln*.4,-rr*.55);bx.lineTo(-Ln*1.8,0);bx.lineTo(-Ln*.4,rr*.55);bx.fill();bx.restore()})}
+    if(sh){
+      ox.save();path(ox,sh);ox.clip();
+      var T0=t/LOOP*PI2;
+      bub.forEach(function(b){var x=b.x+Math.sin(T0*b.k+b.ph)*b.a,y=b.y+Math.cos(T0*b.k+b.ph)*b.a;bubble(ox,x,y,b.r)});
+      var gl=ox.createLinearGradient(0,0,W,H);gl.addColorStop(0,S.bright?'rgba(255,255,255,.34)':'rgba(255,255,255,.28)');gl.addColorStop(.4,'rgba(255,255,255,0)');gl.addColorStop(1,S.bright?'rgba(0,110,0,.10)':'rgba(0,60,0,.18)');ox.fillStyle=gl;ox.fillRect(0,0,W,H);
+      ox.restore();
+      if(sh.kind==='run'){ox.save();ox.beginPath();ox.rect(-5,-5,W+10,H+10);ox.clip();ox.strokeStyle='rgba(245,255,200,.95)';ox.lineWidth=3;ox.beginPath();ox.moveTo(-6,sh.pts[1][1]+3);for(var k=1;k<sh.pts.length-1;k++)ox.lineTo(sh.pts[k][0],sh.pts[k][1]+3);ox.stroke();ox.restore()}
+      if(sh.kind==='splat'||sh.kind==='fly'){ox.save();poly(ox,sh.pts);ox.strokeStyle=S.bright?'rgba(40,130,0,.5)':'rgba(8,60,10,.55)';ox.lineWidth=4;ox.stroke();ox.restore()}
+      if(sh.kind==='fly'&&sh.u>.4){ox.save();ox.strokeStyle='rgba(220,255,120,'+(.38*(sh.u-.4)/.6).toFixed(2)+')';ox.lineWidth=1.5;for(var sl=0;sl<14;sl++){var sa2=sl*.449+sh.u*2,r1=sh.r*1.7+(sl%3)*9,r2=r1+40+sh.u*80;ox.beginPath();ox.moveTo(sh.pc[0]+Math.cos(sa2)*r1,sh.pc[1]+Math.sin(sa2)*r1);ox.lineTo(sh.pc[0]+Math.cos(sa2)*r2,sh.pc[1]+Math.sin(sa2)*r2);ox.stroke()}ox.restore()}
+    }
+    heads.forEach(function(h){ox.fillStyle='rgba(255,255,255,.88)';ox.beginPath();ox.ellipse(h[0]-h[2]*.3,h[1]-h[2]*.38,h[2]*.28,h[2]*.17,-.7,0,PI2);ox.fill()});
+    /* камера: вздрагивание на ударе, лёгкий наезд на подлёте */
+    var sx=0,sy=0,sc=1;
+    if(t>=IMPACT&&t<IMPACT+.3){var q=1-(t-IMPACT)/.3;sx=Math.sin((t-IMPACT)*85)*8*q;sy=Math.cos((t-IMPACT)*66)*6*q;sc=1+.045*q}
+    if(t>=SPLAT0&&t<IMPACT)sc=1+.06*ei((t-SPLAT0)/(IMPACT-SPLAT0));
+    stage.style.transform='translate('+sx.toFixed(1)+'px,'+sy.toFixed(1)+'px) scale('+(sc*OVS).toFixed(3)+')';
+    var f=t<1.4?1.12-.12*eo(t/1.2):1;foot.style.transform='scale('+f.toFixed(4)+')';
+    if(window.__capture){var mo=document.querySelector('.mouth');mo.style.animation='none';mo.style.transform='scaleY('+(.25+Math.abs(Math.sin(t*11))).toFixed(3)+')'}
+    var ci=Math.min(7,Math.floor(t/.45)),cp=$('#cap');cp.textContent=CAPS[S.lang][ci];cp.className='cap'+(ci===0?' hl':'');
+    $('#tm').textContent=t.toFixed(2)+' с';$('#seek').value=t;
+    var rows=document.querySelectorAll('#steps dd'),act=0;rows.forEach(function(r,i2){if(t>=parseFloat(r.dataset.a))act=i2});
+    rows.forEach(function(r,i2){r.className=i2===act?'on':''});$('#now').textContent=rows[act].textContent;
+  }
+  function syncAudio(){
+    if(!S.sound||!S.playing||S.slow){if(!au.paused)au.pause();return}
+    var d=Math.abs(au.currentTime-S.t);d=Math.min(d,LOOP-d);
+    if(au.paused){au.currentTime=S.t;var p=au.play();if(p&&p.catch)p.catch(function(){S.sound=false;var sb=$('#snd');sb.textContent='Звук заблокирован';sb.setAttribute('aria-pressed','false')})}
+    else if(d>.25)au.currentTime=S.t;
+  }
+  function press(g,b){g.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false')})}
+  document.querySelectorAll('[data-v]').forEach(function(b){b.addEventListener('click',function(){S.lang=b.dataset.v;press(b.parentNode,b);render()})});
+  $('#safe').addEventListener('click',function(e){var on=$('#shot').classList.toggle('on');e.currentTarget.setAttribute('aria-pressed',on)});
+  $('#seek').addEventListener('input',function(e){S.t=parseFloat(e.target.value);render();if(S.sound&&!au.paused)au.currentTime=S.t});
+  var pl=$('#play');function setPlay(v){S.playing=v;pl.textContent=v?'Пауза':'Играть';pl.setAttribute('aria-pressed',v?'false':'true');syncAudio()}
+  pl.addEventListener('click',function(){setPlay(!S.playing)});
+  $('#snd').addEventListener('click',function(e){S.sound=!S.sound;e.currentTarget.textContent=S.sound?'Звук вкл.':'Звук выкл.';e.currentTarget.setAttribute('aria-pressed',S.sound);syncAudio()});
+  $('#trn').addEventListener('click',function(e){S.trans=!S.trans;e.currentTarget.textContent=S.trans?'Прозрачность: динамич.':'Прозрачность: нет';e.currentTarget.setAttribute('aria-pressed',S.trans);render()});
+  $('#clr').addEventListener('click',function(e){S.bright=!S.bright;$('#root').classList.toggle('bright',S.bright);e.currentTarget.textContent=S.bright?'Цвет: яркий':'Цвет: первый';e.currentTarget.setAttribute('aria-pressed',S.bright);render()});
+  $('#slow').addEventListener('click',function(e){S.slow=!S.slow;e.currentTarget.setAttribute('aria-pressed',S.slow);syncAudio()});
+  $('#sfx').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var a=document.getElementById('a_'+b.dataset.s);a.currentTime=0;var p=a.play();if(p&&p.catch)p.catch(function(){})});
+  var last=0,reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function loop(now){
+    if(last&&S.playing){var dt=(now-last)/1000*(S.slow?.3:1);S.t+=dt;if(S.t>=LOOP)S.t-=LOOP;render();syncAudio()}
+    last=now;requestAnimationFrame(loop)}
+  window.__f=function(t){S.t=t;S.playing=false;render()};
+  S.t=2;render();S.t=0;render();requestAnimationFrame(loop);
+  if(reduce)setPlay(false);
+})();
+</script>
