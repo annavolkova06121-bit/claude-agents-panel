@@ -37,10 +37,9 @@ class Juicy(Slime):
             d.ellipse((x - w * 0.95, y - 7, x + w * 0.95, y + 7), fill=255)
         return np.asarray(img, np.float32) / 255
 
-    def render(self, pad=24):
+    def _paint(self, Lq, crop=None, bubbles=True):
         W, H = self.W, self.H
         P = self.pal
-        Lq = goo(np.clip(self.m + self._static_drips(), 0, 1), 2.0)
         rgb = np.zeros((H, W, 3), np.float32)
         a = np.zeros((H, W), np.float32)
         full = lambda c: np.broadcast_to(c, (H, W, 3))
@@ -73,7 +72,7 @@ class Juicy(Slime):
         # пузырьки
         bub = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         bd = ImageDraw.Draw(bub)
-        for b in self.bub[:22]:
+        for b in (self.bub[:22] if bubbles else []):
             x, y, r = b["x"], b["y"], b["r"] * 0.8
             if Lq[int(y), int(x)] < 0.97:
                 continue
@@ -82,10 +81,43 @@ class Juicy(Slime):
         B = np.asarray(bub, np.float32)
         rgb, a = over(rgb, a, B[..., :3], B[..., 3] / 255 * Lq)
         out = np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.uint8)
-        ys, xs = np.nonzero(out[..., 3] > 6)
-        y0, y1 = max(0, ys.min() - 2), min(H, ys.max() + 3)
-        x0, x1 = max(0, xs.min() - 2), min(W, xs.max() + 3)
+        if crop is None:
+            ys, xs = np.nonzero(out[..., 3] > 6)
+            crop = (max(0, ys.min() - 2), min(H, ys.max() + 3), max(0, xs.min() - 2), min(W, xs.max() + 3))
+        y0, y1, x0, x1 = crop
+        self.crop = crop
         return out[y0:y1, x0:x1]
+
+    def render(self):
+        """Готовое слово без анимации."""
+        return self._paint(goo(np.clip(self.m + self._static_drips(), 0, 1), 2.0))
+
+    def render_appear(self, t, T=0.42):
+        """Слово «выливается» из слизи за T секунд: сначала комок, потом он стягивается в буквы.
+        Блоб-морфинг: размытие уменьшается, поле усиливается, порог 0,5 держит массу."""
+        if not hasattr(self, "crop"):
+            self.render()
+        p = min(max(t / T, 0.0), 1.0)
+        e = 1 - (1 - p) ** 3
+        sigma = 2.0 + 11.0 * (1 - e) ** 2
+        dy = int(round((1 - e) * self.size * 0.28))
+        src = shift(np.clip(self.m + self._static_drips() * e, 0, 1), 0, dy)
+        field = blur(src, sigma) * (sigma / 2.0) ** 1.6
+        Lq = smooth(field, 0.40, 0.60)
+        # «шлёп» на старте: брызги-капли вокруг, которые втягиваются в массу
+        if p < 0.85:
+            rng = np.random.default_rng(3)
+            im = Image.new("L", (self.W, self.H), 0)
+            d = ImageDraw.Draw(im)
+            cx, cy = (self.x0 + self.x1) / 2, (self.y0 + self.y1) / 2
+            for _ in range(16):
+                ang = rng.uniform(0, 6.283)
+                dist = (self.x1 - self.x0) * rng.uniform(0.25, 0.55) * (1 - e) ** 0.8 + 6
+                rr = self.size * rng.uniform(0.03, 0.07) * (1 - 0.5 * p)
+                x, y = cx + np.cos(ang) * dist, cy + dy + np.sin(ang) * dist * 0.5
+                d.ellipse((x - rr, y - rr, x + rr, y + rr), fill=255)
+            Lq = np.maximum(Lq, goo(np.asarray(im, np.float32) / 255, 1.2))
+        return self._paint(Lq, crop=self.crop, bubbles=p > 0.8)
 
 
 if __name__ == "__main__":
