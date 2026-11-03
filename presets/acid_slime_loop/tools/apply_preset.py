@@ -30,6 +30,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PRESET_DIR = Path(__file__).resolve().parent.parent
@@ -102,7 +103,8 @@ def probe(ffprobe, path):
     dur = float(d["format"].get("duration") or v.get("duration") or 0)
     num, _, den = (v.get("avg_frame_rate") or v.get("r_frame_rate") or "30/1").partition("/")
     fps = float(num) / float(den or 1) if float(den or 1) else 30.0
-    info = {"width": int(v["width"]), "height": int(v["height"]), "fps": fps, "duration": dur, "audio": None}
+    info = {"width": int(v["width"]), "height": int(v["height"]), "fps": fps, "duration": dur, "audio": None,
+            "audio_duration": float(a["duration"]) if a is not None and a.get("duration") not in (None, "N/A") else None}
     if a is not None:
         ch = int(a.get("channels") or 2)
         layout = a.get("channel_layout") or {1: "mono", 2: "stereo"}.get(ch, "stereo")
@@ -122,9 +124,14 @@ def _num(x):
     return f"{x:.6f}".rstrip("0").rstrip(".") or "0"
 
 
-def build_command(src, dst, cfg, media, caps, *, ffmpeg="ffmpeg", intro=True, outro=True,
-                  intro_db=None, outro_db=None, duck=None, overlay="auto", vargs=None, aargs=None, level=None):
-    """Собирает команду ffmpeg. Чистая функция: ничего не запускает (удобно проверять и печатать)."""
+def build_commands(src, dst, cfg, media, caps, tmp_wav, *, ffmpeg="ffmpeg", intro=True, outro=True,
+                   intro_db=None, outro_db=None, duck=None, overlay="auto", vargs=None, aargs=None, level=None):
+    """Собирает две команды ffmpeg. Чистая функция: ничего не запускает (удобно проверять и печатать).
+
+    1) звук: основная дорожка + звуки пресета (громкость, срез верхов, ducking, лимитер) -> временный WAV;
+    2) картинка: оверлеи поверх видео, кодирование видео и звука из готового WAV.
+    Раздельные проходы нужны, чтобы звук и картинка не мешали друг другу в одном графе ffmpeg:
+    на ffmpeg 6.1 в общем графе звук мог обрезаться на 0,1-0,2 с раньше конца ролика."""
     pd = cfg["_dir"]
     W, H, L = media["width"], media["height"], media["duration"]
     A = media["audio"]
@@ -156,43 +163,14 @@ def build_command(src, dst, cfg, media, caps, *, ffmpeg="ffmpeg", intro=True, ou
     if overlay == "pair" and not caps["alphamerge"]:
         raise ValueError("в этой сборке ffmpeg нет фильтра alphamerge")
 
-    inputs = [([], str(src))]          # [(опции перед -i, источник)]
-    chains = []
+    # ============ проход 1: звук -> временный WAV ============
+    a_in = [([], str(src))] if A else [(["-f", "lavfi", "-t", f"{L:.3f}"], f"anullsrc=r={sr}:cl={layout}")]
+    a_ch = []
 
-    def add(pre, path):
-        inputs.append((pre, str(path)))
-        return len(inputs) - 1
+    def a_add(path):
+        a_in.append(([], str(path)))
+        return len(a_in) - 1
 
-    scale = ""
-    if (W, H) != (cfg["frame"]["width"], cfg["frame"]["height"]):
-        scale = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=bicubic,crop={W}:{H},"
-
-    def overlay_stream(part, tag, start_s):
-        p = cfg[part]
-        if overlay == "alpha":
-            i = add(["-c:v", "libvpx-vp9"], pd / p["overlay_alpha"])
-            head = f"[{i}:v]"
-        else:
-            i = add([], pd / p["overlay_rgb"])
-            j = add([], pd / p["overlay_matte"])
-            chains.append(f"[{i}:v][{j}:v]alphamerge[{tag}m]")
-            head = f"[{tag}m]"
-        chains.append(f"{head}{scale}format=yuva420p,setpts=PTS-STARTPTS+{_num(start_s)}/TB[{tag}]")
-        return f"[{tag}]"
-
-    cur = "[0:v]"
-    if use_intro:
-        ov = overlay_stream("intro", "iov", 0.0)
-        chains.append(f"{cur}{ov}overlay=0:0:format=yuv420:eof_action=pass[v1]")
-        cur = "[v1]"
-    if use_outro:
-        t_out = max(0.0, L - d_out)
-        ov = overlay_stream("outro", "oov", t_out)
-        chains.append(f"{cur}{ov}overlay=0:0:format=yuv420:eof_action=pass[v2]")
-        cur = "[v2]"
-    chains.append(f"{cur}format=yuv420p[vout]")
-
-    # --- звук
     mix = cfg["mix"]
     duck_cfg = dict(mix["duck"])
     if duck is not None:
@@ -203,7 +181,7 @@ def build_command(src, dst, cfg, media, caps, *, ffmpeg="ffmpeg", intro=True, ou
 
     def sfx_stream(part, tag, gain_db, start_s):
         p = cfg[part]
-        i = add([], pd / p["audio"])
+        i = a_add(pd / p["audio"])
         f = [fmt]
         shelf = p.get("audio_hf_shelf_db", 0)
         if shelf and caps["highshelf"]:
@@ -211,7 +189,7 @@ def build_command(src, dst, cfg, media, caps, *, ffmpeg="ffmpeg", intro=True, ou
         f.append(f"volume={_num(gain_db)}dB")
         if start_s > 0:
             f.append("adelay=" + "|".join([_num(start_s * 1000)] * nch))
-        chains.append(f"[{i}:a]{','.join(f)}[{tag}]")
+        a_ch.append(f"[{i}:a]{','.join(f)}[{tag}]")
         sfx_labels.append(f"[{tag}]")
 
     if use_intro:
@@ -219,48 +197,86 @@ def build_command(src, dst, cfg, media, caps, *, ffmpeg="ffmpeg", intro=True, ou
     if use_outro:
         sfx_stream("outro", "oa", cfg["outro"]["audio_gain_db"] if outro_db is None else outro_db, max(0.0, L - d_out))
 
-    if A:
-        main_a = "[0:a]"
-    else:                                            # у ролика нет звука: тишина нужной длины
-        k = add(["-f", "lavfi", "-t", f"{L:.3f}"], f"anullsrc=r={sr}:cl={layout}")
-        main_a = f"[{k}:a]"
+    main_a = "[0:a]"
     norm = ":normalize=0" if caps["amix_normalize"] else ""
     if len(sfx_labels) == 2:
-        chains.append(f"{sfx_labels[0]}{sfx_labels[1]}amix=inputs=2:duration=longest:dropout_transition=0{norm}[sfx]")
+        a_ch.append(f"{sfx_labels[0]}{sfx_labels[1]}amix=inputs=2:duration=longest:dropout_transition=0{norm}[sfx]")
         sfx = "[sfx]"
     else:
         sfx = sfx_labels[0]
     if do_duck and A:
-        chains.append(f"{main_a}asplit=2[am][ac]")
-        chains.append(f"{sfx}[ac]sidechaincompress=threshold={_num(duck_cfg['threshold'])}:ratio={_num(duck_cfg['ratio'])}"
-                      f":attack={_num(duck_cfg['attack_ms'])}:release={_num(duck_cfg['release_ms'])}:makeup=1[sfxd]")
+        a_ch.append(f"{main_a}asplit=2[am][ac]")
+        a_ch.append(f"{sfx}[ac]sidechaincompress=threshold={_num(duck_cfg['threshold'])}:ratio={_num(duck_cfg['ratio'])}"
+                    f":attack={_num(duck_cfg['attack_ms'])}:release={_num(duck_cfg['release_ms'])}:makeup=1[sfxd]")
         am, sfx = "[am]", "[sfxd]"
     else:
         am = main_a
-    tail = ""
-    if not caps["amix_normalize"]:
-        tail = ",volume=2"                           # старый amix сам делит громкость на число входов
+    tail = "" if caps["amix_normalize"] else ",volume=2"   # старый amix сам делит громкость на число входов
     lim = mix.get("limiter", {})
-    last = f"{am}{sfx}amix=inputs=2:duration=first:dropout_transition=0{norm}{tail}"
+    last = f"{am}{sfx}amix=inputs=2:duration=longest:dropout_transition=0{norm}{tail}"
     if lim.get("enabled", True) and caps["alimiter"]:
         last += (f",alimiter=limit={_num(lim.get('limit', 0.97))}:attack={_num(lim.get('attack_ms', 1))}"
                  f":release={_num(lim.get('release_ms', 60))}:level=0")
-    chains.append(last + "[aout]")
+    a_ch.append(last + "[aout]")
+    audio_argv = [ffmpeg, "-hide_banner", "-y"]
+    for pre, path in a_in:
+        audio_argv += pre + ["-i", path]
+    audio_argv += ["-filter_complex", ";".join(a_ch), "-map", "[aout]", "-c:a", "pcm_s16le", "-ar", str(sr), str(tmp_wav)]
 
+    # ============ проход 2: картинка и кодирование ============
+    v_in = [([], str(src))]
+    v_ch = []
+
+    def v_add(pre, path):
+        v_in.append((pre, str(path)))
+        return len(v_in) - 1
+
+    scale = ""
+    if (W, H) != (cfg["frame"]["width"], cfg["frame"]["height"]):
+        scale = f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=bicubic,crop={W}:{H},"
+
+    def overlay_stream(part, tag, start_s):
+        p = cfg[part]
+        if overlay == "alpha":
+            i = v_add(["-c:v", "libvpx-vp9"], pd / p["overlay_alpha"])
+            head = f"[{i}:v]"
+        else:
+            i = v_add([], pd / p["overlay_rgb"])
+            j = v_add([], pd / p["overlay_matte"])
+            v_ch.append(f"[{i}:v][{j}:v]alphamerge[{tag}m]")
+            head = f"[{tag}m]"
+        v_ch.append(f"{head}{scale}format=yuva420p,setpts=PTS-STARTPTS+{_num(start_s)}/TB[{tag}]")
+        return f"[{tag}]"
+
+    cur = "[0:v]"
+    if use_intro:
+        ov = overlay_stream("intro", "iov", 0.0)
+        v_ch.append(f"{cur}{ov}overlay=0:0:format=yuv420:eof_action=pass[v1]")
+        cur = "[v1]"
+    if use_outro:
+        ov = overlay_stream("outro", "oov", max(0.0, L - d_out))
+        v_ch.append(f"{cur}{ov}overlay=0:0:format=yuv420:eof_action=pass[v2]")
+        cur = "[v2]"
+    v_ch.append(f"{cur}format=yuv420p[vout]")
+    k = v_add([], tmp_wav)                                  # готовый звук подключаем как обычный вход
     enc = cfg["encode"]
-    argv = [ffmpeg, "-hide_banner", "-y"]
-    for pre, path in inputs:
-        argv += pre + ["-i", path]
-    argv += ["-filter_complex", ";".join(chains), "-map", "[vout]", "-map", "[aout]"]
-    argv += list(vargs) if vargs else list(enc["video"])
-    argv += list(aargs) if aargs else list(enc["audio"])
-    argv += list(enc.get("container", [])) if str(dst).lower().endswith((".mp4", ".mov", ".m4v")) else []
-    argv += [str(dst)]
+    video_argv = [ffmpeg, "-hide_banner", "-y"]
+    for pre, path in v_in:
+        video_argv += pre + ["-i", path]
+    video_argv += ["-filter_complex", ";".join(v_ch), "-map", "[vout]", "-map", f"{k}:a"]
+    video_argv += list(vargs) if vargs else list(enc["video"])
+    video_argv += list(aargs) if aargs else list(enc["audio"])
+    video_argv += list(enc.get("container", [])) if str(dst).lower().endswith((".mp4", ".mov", ".m4v")) else []
+    video_argv += [str(dst)]
     notes = {"overlay_mode": overlay, "duck": bool(do_duck and A), "has_audio": bool(A)}
-    return argv, notes
+    return [audio_argv, video_argv], notes
 
 
 # ---------------------------------------------------------------- запуск
+def _printable(argv):
+    return subprocess.list2cmdline(argv) if os.name == "nt" else " ".join(shlex.quote(a) for a in argv)
+
+
 def apply_preset(src, dst, preset_dir=None, *, intro=True, outro=True, intro_db=None, outro_db=None,
                  duck=None, overlay="auto", ffmpeg=None, ffprobe=None, vargs=None, aargs=None,
                  level=None, dry_run=False, verbose=False, log=print):
@@ -277,24 +293,30 @@ def apply_preset(src, dst, preset_dir=None, *, intro=True, outro=True, intro_db=
     missing = [k for k in ("sidechaincompress", "alimiter", "amix_normalize", "highshelf") if not caps[k]]
     if missing:
         log("! В этой сборке ffmpeg нет: " + ", ".join(missing) + " (пресет подстроится, но проверьте качество звука)")
-    argv, notes = build_command(src, dst, cfg, media, caps, ffmpeg=ff, intro=intro, outro=outro, intro_db=intro_db,
-                                outro_db=outro_db, duck=duck, overlay=overlay, vargs=vargs, aargs=aargs, level=level)
-    printable = subprocess.list2cmdline(argv) if os.name == "nt" else " ".join(shlex.quote(a) for a in argv)
+    opts = dict(ffmpeg=ff, intro=intro, outro=outro, intro_db=intro_db, outro_db=outro_db, duck=duck,
+                overlay=overlay, vargs=vargs, aargs=aargs, level=level)
     if dry_run:
-        log(printable)
+        cmds, _ = build_commands(src, dst, cfg, media, caps, Path("mix_tmp.wav"), **opts)
+        for c in cmds:
+            log(_printable(c))
         return dst
     dst.parent.mkdir(parents=True, exist_ok=True)
-    log(f"Пресет {cfg['name']}: {src.name} -> {dst.name} ({media['width']}x{media['height']}, {media['fps']:.2f} fps, "
-        f"{media['duration']:.2f} с; оверлей: {notes['overlay_mode']}, ducking: {'да' if notes['duck'] else 'нет'})")
-    r = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-    if r.returncode != 0:
-        tail = "\n".join(r.stderr.decode("utf-8", "replace").splitlines()[-40:])
-        raise RuntimeError(f"ffmpeg завершился с кодом {r.returncode}\nКоманда:\n{printable}\n{tail}")
-    if verbose:
-        log(r.stderr.decode("utf-8", "replace"))
+    with tempfile.TemporaryDirectory(prefix="slime_preset_") as tmp:
+        cmds, notes = build_commands(src, dst, cfg, media, caps, Path(tmp) / "mix.wav", **opts)
+        log(f"Пресет {cfg['name']}: {src.name} -> {dst.name} ({media['width']}x{media['height']}, {media['fps']:.2f} fps, "
+            f"{media['duration']:.2f} с; оверлей: {notes['overlay_mode']}, ducking: {'да' if notes['duck'] else 'нет'})")
+        for step, argv in zip(("звук", "картинка и кодирование"), cmds):
+            r = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+            if r.returncode != 0:
+                tail = "\n".join(r.stderr.decode("utf-8", "replace").splitlines()[-40:])
+                raise RuntimeError(f"ffmpeg завершился с кодом {r.returncode} на шаге «{step}»\nКоманда:\n{_printable(argv)}\n{tail}")
+            if verbose:
+                log(r.stderr.decode("utf-8", "replace"))
     out = probe(fp, dst)
     if abs(out["duration"] - media["duration"]) > 0.25:
         raise RuntimeError(f"длина результата {out['duration']:.2f} с не совпала с исходной {media['duration']:.2f} с")
+    if out.get("audio_duration") and out["audio_duration"] < out["duration"] - 0.12:
+        raise RuntimeError(f"звук результата короче видео: {out['audio_duration']:.2f} с против {out['duration']:.2f} с")
     log(f"Готово: {dst} ({dst.stat().st_size / 1e6:.1f} МБ, {out['duration']:.2f} с)")
     return dst
 

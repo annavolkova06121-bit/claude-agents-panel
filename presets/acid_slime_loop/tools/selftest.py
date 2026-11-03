@@ -67,8 +67,11 @@ def main():
     ap.apply_preset(src, dst, ffmpeg=o.ffmpeg, log=lambda *_: None)
     ap.apply_preset(src, dst_nd, duck=False, ffmpeg=o.ffmpeg, log=lambda *_: None)
 
-    m_in, m_out = ap.probe(fp, src), ap.probe(fp, dst)
+    m_in, m_out, m_nd = ap.probe(fp, src), ap.probe(fp, dst), ap.probe(fp, dst_nd)
     check("длина не изменилась", abs(m_in["duration"] - m_out["duration"]) < 0.1, f"{m_in['duration']:.2f} -> {m_out['duration']:.2f} с")
+    check("звук не короче видео (с ducking и без)",
+          all((m["audio_duration"] or m["duration"]) > m["duration"] - 0.06 for m in (m_out, m_nd)),
+          f"{m_out['audio_duration']:.2f} и {m_nd['audio_duration']:.2f} с при видео {m_out['duration']:.2f} с")
     check("размер и звук на месте", (m_out["width"], m_out["height"]) == (W, H) and m_out["audio"] is not None)
 
     first, last = mean_rgb(ff, dst, 0.0), mean_rgb(ff, dst, DUR - 1.5 / FPS)
