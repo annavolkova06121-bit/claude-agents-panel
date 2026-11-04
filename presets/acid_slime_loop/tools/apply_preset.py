@@ -113,8 +113,25 @@ def probe(ffprobe, path):
 
 
 # ---------------------------------------------------------------- настройки
+ALIASES = {"acid": "acid_slime_loop", "toxic": "acid_slime_loop", "lava": "lava_loop", "lavar": "lava_real_loop", "lava3d": "lava_real_loop", "sea": "sea_loop"}
+
+
+def resolve_preset(name=None):
+    """Папка пресета: путь к папке или короткое имя (acid, lava, sea) среди соседних пресетов."""
+    if not name:
+        return PRESET_DIR
+    p = Path(name)
+    if (p / "preset.json").exists():
+        return p
+    for cand in (PRESET_DIR.parent / ALIASES.get(name, name), PRESET_DIR.parent / (name + "_loop")):
+        if (cand / "preset.json").exists():
+            return cand
+    known = sorted(d.name for d in PRESET_DIR.parent.iterdir() if (d / "preset.json").exists())
+    raise FileNotFoundError(f"пресет «{name}» не найден; доступны: {', '.join(known)} (или укажите путь к папке)")
+
+
 def load_preset(preset_dir=None):
-    pd = Path(preset_dir) if preset_dir else PRESET_DIR
+    pd = resolve_preset(preset_dir)
     cfg = json.loads((pd / "preset.json").read_text(encoding="utf-8"))
     cfg["_dir"] = pd
     return cfg
@@ -359,7 +376,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Накладывает пресет «Кислотная слизь» (вступление и плюха) на ролик")
     ap.add_argument("input", nargs="?")
     ap.add_argument("output", nargs="?")
-    ap.add_argument("--preset", help="папка пресета (по умолчанию рядом со скриптом)")
+    ap.add_argument("--preset", help="стиль: acid (токсичный, по умолчанию), lava, sea или путь к папке пресета")
     ap.add_argument("--level", choices=["quiet", "normal", "loud"],
                     help="быстрый выбор громкости: quiet (-20/-16 дБ), normal (-14/-12, по умолчанию), loud (-8/-7)")
     ap.add_argument("--intro-db", type=float, help="усиление звука вступления, дБ (перекрывает --level; в пресете -14)")
